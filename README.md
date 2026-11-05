@@ -9,9 +9,9 @@ A simple classroom tool for calling on students fairly and keeping track of who 
 ## Opening the app
 
 - **Online:** open the GitHub Pages link for this repository (see "Putting it online" below).
-- **Offline:** download this repository, then double‑click `index.html`. It works the same way without internet.
+- **Offline:** on GitHub, click **Code → Download ZIP**, unzip it, then double‑click `index.html`. It works without internet.
 
-Use the same browser on the same computer each time — that's where your data lives.
+Use the same link, in the same browser, on the same computer each time — that's where your data lives. (The online link and the downloaded copy each keep their **own separate** data. Pick one and stick with it, or move data between them with a backup.)
 
 ## Getting started
 
@@ -32,13 +32,14 @@ To **fix a name**, go to **Roster** and type over it — it saves on its own. Th
    - **2 – Answered**
    - **3 – Passed**
    - **4 – Absent** — this student is skipped for the rest of today.
-4. Changed your mind? Click **Skip (don't log)** or press **Esc**. Logged by mistake? Click **Undo** in the message at the bottom of the screen.
+4. Changed your mind? Click **Skip (don't log)** or press **Esc**. Logged by mistake? Click **Undo** in the message at the bottom of the screen (it shows for a few seconds), or fix it later on the **Today** tab.
 
-Click **⛶ Full screen** when projecting.
+Click **Full screen** when projecting. "Today" follows your computer's clock and date (Philippine time if that's how your laptop is set).
 
 ### Fair picking
 
 - Nobody is picked twice until **everyone present** has had a turn. Then a new round starts automatically.
+- A round carries over to your next meeting, so students who weren't reached last time go first.
 - Students marked **Absent** don't use up their turn — they'll be in the pool next time they're present.
 - Tick **Allow repeats** if you want anyone to be picked at any time (it still avoids the same person twice in a row).
 - **Today → Start a new round** makes everyone pickable again right away.
@@ -50,7 +51,7 @@ Below that is a list of students **not called yet today** — tap **Absent** nex
 
 ## Summary tab
 
-A table for each student across all your sessions: how many times they were called, how many times they answered well, answered, passed, or were absent, and the last date they were called. Students who have never been called are shown in red. Click a column heading to sort, or click a student to see their full history.
+A table for each student across all your sessions: how many times they were called, how many times they answered well, answered, passed, or were absent, and the last date they were called. A red **0** in the "Called" column means that student hasn't been called yet. Click a column heading to sort, or click a student to see their full history.
 
 ## Exporting to a spreadsheet (CSV)
 
@@ -85,6 +86,12 @@ The app shows a reminder at the top if you have records and haven't backed up in
 
 Even when it's online, the data still stays only in the browser you use — GitHub never sees your students' names.
 
+## Sharing the link
+
+When you paste the link in Messenger, Facebook, Viber, or elsewhere, it shows a preview card (the picture is `share.png`). The preview is set up for `https://missniceph.github.io/recitation-picker/`. If your GitHub Pages address is different, see "What's here and how to update it" below.
+
+Sharing the link shares **only the empty app** — never your classes or students. Each teacher who opens it starts with their own blank copy in their own browser.
+
 ## Keyboard shortcuts (Pick tab)
 
 | Key | Action |
@@ -93,10 +100,26 @@ Even when it's online, the data still stays only in the browser you use — GitH
 | 1 / 2 / 3 / 4 | Answered well / Answered / Passed / Absent |
 | Esc | Skip without logging |
 
-## Files
+The app also works with a keyboard only (Tab to move, Enter or Space to press) and with screen readers.
 
-- `index.html` — the page
-- `style.css` — the look
-- `app.js` — how it works
+## What's here and how to update it
 
-No build step and no outside libraries.
+| File | What it is |
+| --- | --- |
+| `index.html` | The page itself: the buttons and text you see, plus the title and link-preview settings at the top. |
+| `style.css` | Colours, sizes, and layout. Colours are listed once at the top. |
+| `app.js` | How everything works: picking, logging, the tables, export, and backup. |
+| `share.png` | The picture shown when the link is shared (1200×630). |
+| `share.svg` | The editable source of `share.png`. |
+| `favicon.svg`, `favicon-32.png`, `apple-touch-icon.png` | The little target icon in the browser tab and on phone home screens. |
+| `.nojekyll` | An empty file that tells GitHub Pages to serve the files as they are. Leave it. |
+
+There is no build step and no outside library — what's in the repository is exactly what runs.
+
+**To change some wording:** on GitHub, open `index.html` (or `app.js` for pop-up messages), click the ✏️ pencil icon, edit the text, then click **Commit changes**. The live site updates within a few minutes.
+
+**If your GitHub Pages address isn't `missniceph.github.io/recitation-picker`:** in `index.html`, replace that address in the lines that start with `<link rel="canonical"`, `<meta property="og:url"`, and `<meta property="og:image"`.
+
+**To change the share picture:** edit `share.svg` (it's text; any change to wording or colours is near the top or bottom), open it in Chrome, take a 1200×630 screenshot, and save it over `share.png`. Facebook keeps old previews for a while — paste your link into the [Facebook Sharing Debugger](https://developers.facebook.com/tools/debug/) and click **Scrape Again** to refresh it.
+
+**Your data is safe during updates.** Changing the files on GitHub never touches the classes and records saved in your browser. Still, download a backup before big changes, just in case.

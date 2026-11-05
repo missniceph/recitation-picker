@@ -40,6 +40,8 @@
   const byName = (a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: 'base' });
   const randomItem = (arr) => arr[Math.floor(Math.random() * arr.length)];
   const reducedMotion = () => window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const plural = (n, word) => `${n} ${word}${n === 1 ? '' : 's'}`;
+  const WELCOME = 'Welcome! Click “+ Class” to add your first class.';
 
   // ---------- state ----------
   function blankState() {
@@ -131,8 +133,9 @@
   }
 
   function pick() {
+    if (rolling) return;
     const c = cls();
-    if (!c || rolling) return;
+    if (!c) { showEmpty(WELCOME); return; }
     const { list, present, reset } = eligible(c);
     const display = $('#nameDisplay');
     if (!c.students.length) {
@@ -146,13 +149,13 @@
     if (reset) {
       c.round = [];
       save();
-      toast('🎉 Everyone has been called — starting a new round!');
+      toast('🎉 Everyone here has had a turn — starting a new round!');
     }
     const chosen = randomItem(list);
     pending = { classId: c.id, studentId: chosen.id };
     $('#outcomeBar').hidden = true;
     $('#skipBtn').hidden = true;
-    $('#pickBtn').disabled = true;
+    $('#pickBtn').setAttribute('aria-disabled', 'true');
     rolling = true;
 
     const finish = () => {
@@ -161,8 +164,9 @@
       display.className = 'name-display revealed';
       $('#outcomeBar').hidden = false;
       $('#skipBtn').hidden = false;
-      $('#pickBtn').disabled = false;
+      $('#pickBtn').removeAttribute('aria-disabled');
       $('#pickBtn').textContent = 'Pick again';
+      $('#srLive').textContent = `Picked: ${chosen.name}. Press 1 for Answered well, 2 Answered, 3 Passed, 4 Absent.`;
       confetti();
       renderStatus();
     };
@@ -190,20 +194,25 @@
     const d = $('#nameDisplay');
     d.textContent = msg;
     d.className = 'name-display empty';
+    $('#srLive').textContent = msg;
     $('#outcomeBar').hidden = true;
     $('#skipBtn').hidden = true;
     pending = null;
   }
 
   function resetStage() {
+    // If focus is on a button that's about to be hidden, move it to Pick so keyboard users don't get lost.
+    const a = document.activeElement;
+    const hadFocus = a && ($('#outcomeBar').contains(a) || a === $('#skipBtn'));
     pending = null;
     const d = $('#nameDisplay');
-    d.textContent = 'Ready?';
-    d.className = 'name-display idle';
+    d.textContent = state.classes.length ? 'Ready?' : WELCOME;
+    d.className = state.classes.length ? 'name-display idle' : 'name-display empty';
     $('#outcomeBar').hidden = true;
     $('#skipBtn').hidden = true;
-    $('#pickBtn').disabled = false;
+    $('#pickBtn').removeAttribute('aria-disabled');
     $('#pickBtn').textContent = 'Pick a student';
+    if (hadFocus) $('#pickBtn').focus();
   }
 
   function logOutcome(outcome) {
@@ -314,27 +323,28 @@
       for (const r of recs) {
         const st = studentById(c, r.studentId);
         const select = el('select', {
-          'aria-label': 'Change outcome',
           onchange: (e) => { r.outcome = e.target.value; syncRound(c, r.studentId); save(); renderAll(); },
         }, ...OUTCOME_KEYS.map((k) => el('option', { value: k, text: OUTCOMES[k], selected: k === r.outcome })));
+        const who = st ? st.name : '(removed)';
+        select.setAttribute('aria-label', `Outcome for ${who} at ${prettyTime(r.ts)}`);
         ul.append(el('li', {},
           el('span', { class: 'time', text: prettyTime(r.ts) }),
-          el('span', { class: 'who', text: st ? st.name : '(removed)' }),
-          select,
-          el('button', {
-            class: 'icon-btn', type: 'button', title: 'Delete this entry', 'aria-label': 'Delete this entry', text: '✕',
-            onclick: () => { deleteRecord(c, r.id); save(); renderAll(); },
-          })));
+          el('span', { class: 'who', text: who }),
+          el('span', { class: 'log-actions' }, select,
+            el('button', {
+              class: 'icon-btn', type: 'button', title: 'Delete this entry', 'aria-label': `Delete entry for ${who} at ${prettyTime(r.ts)}`, text: '✕',
+              onclick: () => { deleteRecord(c, r.id); save(); renderAll(); },
+            }))));
       }
       list.append(ul);
     }
 
     const calledToday = new Set(recs.map((r) => r.studentId));
     const notCalled = c.students.filter((s) => !calledToday.has(s.id)).sort(byName);
-    if (!notCalled.length) chips.append(el('span', { class: 'muted', text: c.students.length ? 'Everyone has been called today. 🎉' : 'No students in this class yet.' }));
+    if (!notCalled.length) chips.append(el('span', { class: 'muted', text: c.students.length ? 'Everyone has been called or marked absent today.' : 'No students in this class yet.' }));
     for (const s of notCalled) {
       chips.append(el('span', { class: 'chip' }, s.name, el('button', {
-        type: 'button', text: 'Absent', title: `Mark ${s.name} absent for today`,
+        type: 'button', text: 'Absent', 'aria-label': `Mark ${s.name} absent for today`,
         onclick: () => { addRecord(c, s.id, 'absent'); save(); renderAll(); toast(`${s.name} marked absent for today.`); },
       })));
     }
@@ -362,13 +372,16 @@
     const c = cls();
     const tbody = $('#summaryTable tbody');
     tbody.innerHTML = '';
-    $$('#summaryTable th').forEach((th) => {
-      th.classList.toggle('sorted', th.dataset.sort === sortKey);
-      th.classList.toggle('asc', th.dataset.sort === sortKey && sortAsc);
+    $$('#summaryTable thead th').forEach((th) => {
+      const on = th.dataset.sort === sortKey;
+      th.classList.toggle('sorted', on);
+      th.classList.toggle('asc', on && sortAsc);
+      if (on) th.setAttribute('aria-sort', sortAsc ? 'ascending' : 'descending');
+      else th.removeAttribute('aria-sort');
     });
     if (!c) { $('#summaryMeta').textContent = ''; return; }
     const sessions = new Set(c.records.map((r) => r.date)).size;
-    $('#summaryMeta').textContent = `${c.name} · ${c.students.length} students · ${sessions} session${sessions === 1 ? '' : 's'} with records · "Called" counts everything except Absent.`;
+    $('#summaryMeta').textContent = `${c.name} · ${plural(c.students.length, 'student')} · ${plural(sessions, 'day')} with records. “Called” counts every outcome except Absent.`;
     const rows = summaryRows(c).sort((a, b) => {
       let v;
       if (sortKey === 'name') v = a.name.localeCompare(b.name, undefined, { sensitivity: 'base' });
@@ -383,8 +396,11 @@
     }
     for (const r of rows) {
       const num = (k) => el('td', { class: 'num' + (r[k] ? '' : ' zero'), text: String(r[k]) });
-      tbody.append(el('tr', { onclick: () => openHistory(c, r.id), tabindex: 0, onkeydown: (e) => { if (e.key === 'Enter') openHistory(c, r.id); } },
-        el('td', { text: r.name }),
+      tbody.append(el('tr', { onclick: (e) => { if (!e.target.closest('button')) openHistory(c, r.id); } },
+        el('th', { scope: 'row', class: 'name-cell' }, el('button', {
+          type: 'button', class: 'linkish', text: r.name, 'aria-haspopup': 'dialog',
+          onclick: () => openHistory(c, r.id),
+        })),
         el('td', { class: 'num' + (r.total ? '' : ' never'), text: String(r.total) }),
         num('well'), num('answered'), num('passed'), num('absent'),
         el('td', { class: r.last ? '' : 'muted', text: r.last ? prettyDate(r.last) : 'Not yet' })));
@@ -408,7 +424,8 @@
       }
       body.append(ul);
     }
-    $('#historyDialog').showModal();
+    const dlg = $('#historyDialog');
+    if (dlg.showModal) dlg.showModal(); else dlg.setAttribute('open', '');
   }
 
   function renderRoster() {
@@ -416,7 +433,7 @@
     const list = $('#rosterList');
     list.innerHTML = '';
     $('#rosterTitle').textContent = c ? `Roster — ${c.name}` : 'Roster';
-    $('#rosterCount').textContent = c ? c.students.length : 0;
+    $('#rosterCount').textContent = plural(c ? c.students.length : 0, 'student');
     $('#renameClassBtn').disabled = !c;
     $('#deleteClassBtn').disabled = !c;
     $('#addNamesBtn').disabled = !c;
@@ -601,7 +618,7 @@
     $$('.tab').forEach((t) => {
       const on = t.dataset.view === name;
       t.classList.toggle('active', on);
-      t.setAttribute('aria-selected', on);
+      if (on) t.setAttribute('aria-current', 'page'); else t.removeAttribute('aria-current');
     });
     if (name !== 'pick' && document.fullscreenElement) document.exitFullscreen();
     renderAll();
@@ -625,7 +642,7 @@
     let theme = state.settings.theme;
     if (!theme) theme = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
     document.documentElement.dataset.theme = theme;
-    $('#themeBtn').textContent = theme === 'dark' ? '☀ Light mode' : '☾ Dark mode';
+    $('#themeBtn').textContent = theme === 'dark' ? 'Light mode' : 'Dark mode';
   }
 
   function wire() {
@@ -662,26 +679,37 @@
       else if ($('#stage').requestFullscreen) $('#stage').requestFullscreen();
     });
     document.addEventListener('fullscreenchange', () => {
-      $('#fullscreenBtn').textContent = document.fullscreenElement ? '✕ Exit full screen' : '⛶ Full screen';
+      $('#fullscreenBtn').textContent = document.fullscreenElement ? 'Exit full screen' : 'Full screen';
     });
     $('#csvBtn').addEventListener('click', exportCsv);
     $('#csvBtn2').addEventListener('click', exportCsv);
     $('#exportJsonBtn').addEventListener('click', exportJson);
+    $('#importBtn').addEventListener('click', () => $('#importFile').click());
     $('#importFile').addEventListener('change', (e) => {
       const f = e.target.files[0];
       if (f) importJson(f);
       e.target.value = '';
     });
-    $$('#summaryTable th').forEach((th) => th.addEventListener('click', () => {
+    $$('#summaryTable thead th').forEach((th) => $('button', th).addEventListener('click', () => {
       const k = th.dataset.sort;
       if (sortKey === k) sortAsc = !sortAsc;
       else { sortKey = k; sortAsc = k === 'name' || k === 'last'; }
       renderSummary();
     }));
+    const darkQuery = window.matchMedia('(prefers-color-scheme: dark)');
+    if (darkQuery.addEventListener) darkQuery.addEventListener('change', () => { if (!state.settings.theme) applyTheme(); });
     $('#themeBtn').addEventListener('click', () => {
       state.settings.theme = document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark';
       save();
       applyTheme();
+    });
+
+    // After a mouse/touch click (detail > 0) on these controls, drop focus so the Space bar
+    // means "pick" again instead of re-pressing the control. Keyboard users keep their focus.
+    document.addEventListener('click', (e) => {
+      if (e.detail > 0 && e.target.closest('button, .toggle') && !e.target.closest('#outcomeBar, .stage-actions, dialog')) {
+        if (document.activeElement && document.activeElement !== document.body) document.activeElement.blur();
+      }
     });
 
     // Keyboard shortcuts on the Pick screen.
@@ -689,7 +717,9 @@
       if (currentView() !== 'pick' || e.ctrlKey || e.metaKey || e.altKey) return;
       const tag = (e.target.tagName || '').toLowerCase();
       if (['input', 'textarea', 'select'].includes(tag) || $('#historyDialog').open) return;
-      if (e.key === ' ' || (e.key === 'Enter' && tag !== 'button')) {
+      // Let Space/Enter work normally on a focused button or link (e.g. an outcome button).
+      const onControl = ['button', 'a', 'summary'].includes(tag);
+      if ((e.key === ' ' || e.key === 'Enter') && !onControl) {
         e.preventDefault();
         pick();
       } else if (['1', '2', '3', '4'].includes(e.key) && pending && !rolling) {
@@ -709,8 +739,5 @@
   applyTheme();
   wire();
   renderAll();
-  if (!state.classes.length) {
-    $('#nameDisplay').textContent = 'Welcome! Click “+ Class” to add your first class.';
-    $('#nameDisplay').className = 'name-display empty';
-  }
+  resetStage();
 })();

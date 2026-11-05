@@ -3,27 +3,55 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Recitation Picker</title>
-  <meta name="description" content="Call on students fairly and track class participation. Everything stays in your browser.">
-  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🎯</text></svg>">
+  <title>Recitation Picker — call on students fairly</title>
+  <meta name="description" content="A free classroom tool for teachers: pick a student at random, log how they answered, and track participation. Works offline. Student names stay on your computer.">
+  <meta name="theme-color" content="#1d2340">
+  <link rel="canonical" href="https://missniceph.github.io/recitation-picker/">
+
+  <!-- Share preview (Facebook, Messenger, Viber, X, LinkedIn). Image URLs must be absolute. -->
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="Recitation Picker">
+  <meta property="og:title" content="Recitation Picker — call on students fairly">
+  <meta property="og:description" content="Pick a student at random, log how they answered, and track participation. Student names stay on your computer.">
+  <meta property="og:url" content="https://missniceph.github.io/recitation-picker/">
+  <meta property="og:image" content="https://missniceph.github.io/recitation-picker/share.png">
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="630">
+  <meta property="og:image:alt" content="Recitation Picker: a student's name revealed in large yellow text with four buttons — Answered well, Answered, Passed, Absent.">
+  <meta name="twitter:card" content="summary_large_image">
+
+  <link rel="icon" href="favicon.svg" type="image/svg+xml">
+  <link rel="icon" href="favicon-32.png" type="image/png" sizes="32x32">
+  <link rel="apple-touch-icon" href="apple-touch-icon.png">
   <link rel="stylesheet" href="style.css">
+  <script>
+    /* Set the colour theme before the page paints, so dark mode doesn't flash white. */
+    (function () {
+      var t;
+      try { t = (JSON.parse(localStorage.getItem('recitationPicker.v1')) || {}).settings.theme; } catch (e) {}
+      if (!t) t = window.matchMedia && matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+      document.documentElement.setAttribute('data-theme', t);
+    })();
+  </script>
+  <script src="app.js" defer></script>
 </head>
 <body>
+  <a class="skip-link" href="#main">Skip to content</a>
   <header class="topbar">
-    <div class="brand">🎯 Recitation Picker</div>
+    <h1 class="brand"><span aria-hidden="true">🎯</span> Recitation Picker</h1>
     <div class="class-switch">
       <label for="classSelect" class="sr-only">Class</label>
-      <select id="classSelect" aria-label="Choose class"></select>
-      <button id="addClassBtn" class="btn small" type="button" title="Add a new class">+ Class</button>
+      <select id="classSelect"></select>
+      <button id="addClassBtn" class="btn small" type="button"><span aria-hidden="true">+</span> Class<span class="sr-only"> (add a new class)</span></button>
     </div>
-    <nav class="tabs" role="tablist">
-      <button role="tab" data-view="pick" class="tab active" type="button">Pick</button>
-      <button role="tab" data-view="today" class="tab" type="button">Today</button>
-      <button role="tab" data-view="summary" class="tab" type="button">Summary</button>
-      <button role="tab" data-view="roster" class="tab" type="button">Roster</button>
-      <button role="tab" data-view="backup" class="tab" type="button">Backup</button>
+    <nav class="tabs" aria-label="Sections">
+      <button data-view="pick" class="tab active" type="button" aria-current="page">Pick</button>
+      <button data-view="today" class="tab" type="button">Today</button>
+      <button data-view="summary" class="tab" type="button">Summary</button>
+      <button data-view="roster" class="tab" type="button">Roster</button>
+      <button data-view="backup" class="tab" type="button">Backup</button>
     </nav>
-    <button id="themeBtn" class="btn small ghost" type="button" title="Switch light/dark">Dark mode</button>
+    <button id="themeBtn" class="btn small ghost theme-btn" type="button">Dark mode</button>
   </header>
 
   <div id="backupNag" class="nag" hidden>
@@ -31,77 +59,79 @@
     <button class="linkish" type="button" data-goto="backup">Back up now</button>
   </div>
 
-  <main>
+  <main id="main" tabindex="-1">
     <!-- PICK -->
-    <section id="view-pick" class="view active" aria-label="Pick a student">
+    <section id="view-pick" class="view active" aria-labelledby="pickHeading">
+      <h2 id="pickHeading" class="sr-only">Pick a student</h2>
       <div id="stage" class="stage">
-        <div id="stageStatus" class="stage-status"></div>
-        <div id="nameDisplay" class="name-display idle" aria-live="polite">Ready?</div>
-        <div id="outcomeBar" class="outcome-bar" hidden>
-          <button class="outcome well" data-outcome="well" type="button"><span class="key">1</span>Answered well</button>
-          <button class="outcome answered" data-outcome="answered" type="button"><span class="key">2</span>Answered</button>
-          <button class="outcome passed" data-outcome="passed" type="button"><span class="key">3</span>Passed</button>
-          <button class="outcome absent" data-outcome="absent" type="button"><span class="key">4</span>Absent</button>
+        <p id="stageStatus" class="stage-status"></p>
+        <div id="nameDisplay" class="name-display idle">Ready?</div>
+        <div id="srLive" class="sr-only" aria-live="polite"></div>
+        <div id="outcomeBar" class="outcome-bar" role="group" aria-label="How did they do?" hidden>
+          <button class="outcome well" data-outcome="well" type="button" aria-keyshortcuts="1"><span class="key" aria-hidden="true">1</span>Answered well</button>
+          <button class="outcome answered" data-outcome="answered" type="button" aria-keyshortcuts="2"><span class="key" aria-hidden="true">2</span>Answered</button>
+          <button class="outcome passed" data-outcome="passed" type="button" aria-keyshortcuts="3"><span class="key" aria-hidden="true">3</span>Passed</button>
+          <button class="outcome absent" data-outcome="absent" type="button" aria-keyshortcuts="4"><span class="key" aria-hidden="true">4</span>Absent</button>
         </div>
         <div class="stage-actions">
-          <button id="pickBtn" class="btn primary huge" type="button">Pick a student</button>
-          <button id="skipBtn" class="btn ghost" type="button" hidden>Skip (don't log)</button>
+          <button id="pickBtn" class="btn primary huge" type="button" aria-keyshortcuts="Space">Pick a student</button>
+          <button id="skipBtn" class="btn ghost" type="button" aria-keyshortcuts="Escape" hidden>Skip (don't log)</button>
         </div>
         <div class="stage-options">
           <label class="toggle"><input type="checkbox" id="repeatsToggle"> Allow repeats</label>
-          <button id="fullscreenBtn" class="btn small ghost" type="button">⛶ Full screen</button>
-          <span class="hint">Shortcuts: <kbd>Space</kbd> pick · <kbd>1</kbd>–<kbd>4</kbd> log</span>
+          <button id="fullscreenBtn" class="btn small ghost" type="button">Full screen</button>
+          <span class="hint">Keys: <kbd>Space</kbd> pick · <kbd>1</kbd>–<kbd>4</kbd> log · <kbd>Esc</kbd> skip</span>
         </div>
       </div>
     </section>
 
     <!-- TODAY -->
-    <section id="view-today" class="view" aria-label="Today's session">
+    <section id="view-today" class="view" aria-labelledby="todayHeading">
       <div class="panel">
         <div class="panel-head">
-          <h2>Today <span id="todayDate" class="muted"></span></h2>
-          <button id="newRoundBtn" class="btn small" type="button" title="Everyone becomes pickable again">Start a new round</button>
+          <h2 id="todayHeading">Today <span id="todayDate" class="muted"></span></h2>
+          <button id="newRoundBtn" class="btn small" type="button">Start a new round</button>
         </div>
         <p id="todayStats" class="muted"></p>
         <div id="todayList"></div>
       </div>
       <div class="panel">
         <h3>Not called yet today</h3>
-        <p class="muted small">Taking attendance first? Tap <b>Absent</b> to skip someone for the rest of today.</p>
+        <p class="muted small">Taking attendance first? Tap <b>Absent</b> next to a name to skip that student for the rest of today.</p>
         <div id="notCalledList" class="chips"></div>
       </div>
     </section>
 
     <!-- SUMMARY -->
-    <section id="view-summary" class="view" aria-label="Participation summary">
+    <section id="view-summary" class="view" aria-labelledby="summaryHeading">
       <div class="panel">
         <div class="panel-head">
-          <h2>Participation summary</h2>
-          <button id="csvBtn" class="btn small" type="button">⬇ Export CSV</button>
+          <h2 id="summaryHeading">Participation summary</h2>
+          <button id="csvBtn" class="btn small" type="button">Export CSV</button>
         </div>
         <p id="summaryMeta" class="muted"></p>
-        <div class="table-wrap">
+        <div class="table-wrap" role="region" aria-label="Participation table" tabindex="0">
           <table id="summaryTable" class="table">
             <thead>
               <tr>
-                <th data-sort="name">Student</th>
-                <th data-sort="total" class="num">Called</th>
-                <th data-sort="well" class="num">Well</th>
-                <th data-sort="answered" class="num">Answered</th>
-                <th data-sort="passed" class="num">Passed</th>
-                <th data-sort="absent" class="num">Absent</th>
-                <th data-sort="last">Last called</th>
+                <th scope="col" data-sort="name"><button type="button">Student</button></th>
+                <th scope="col" data-sort="total" class="num"><button type="button">Called</button></th>
+                <th scope="col" data-sort="well" class="num"><button type="button">Well</button></th>
+                <th scope="col" data-sort="answered" class="num"><button type="button">Answered</button></th>
+                <th scope="col" data-sort="passed" class="num"><button type="button">Passed</button></th>
+                <th scope="col" data-sort="absent" class="num"><button type="button">Absent</button></th>
+                <th scope="col" data-sort="last"><button type="button">Last called</button></th>
               </tr>
             </thead>
             <tbody></tbody>
           </table>
         </div>
-        <p class="muted small">Tap a student to see their history. Tap a column heading to sort.</p>
+        <p class="muted small">Tap a name to see that student's history. Tap a column heading to sort. On a phone, swipe the table sideways to see every column.</p>
       </div>
     </section>
 
     <!-- ROSTER -->
-    <section id="view-roster" class="view" aria-label="Roster">
+    <section id="view-roster" class="view" aria-labelledby="rosterTitle">
       <div class="panel">
         <div class="panel-head">
           <h2 id="rosterTitle">Roster</h2>
@@ -111,47 +141,48 @@
           </div>
         </div>
         <label for="pasteNames" class="label">Add students — paste names, one per line</label>
-        <textarea id="pasteNames" rows="6" placeholder="Dela Cruz, Juan&#10;Santos, Maria&#10;Reyes, Jose"></textarea>
+        <textarea id="pasteNames" rows="6" placeholder="Dela Cruz, Juan&#10;Santos, Maria&#10;Reyes, José"></textarea>
         <div class="row-gap">
           <button id="addNamesBtn" class="btn primary" type="button">Add to roster</button>
-          <span id="addNamesMsg" class="muted small"></span>
+          <span id="addNamesMsg" class="muted small" role="status"></span>
         </div>
       </div>
       <div class="panel">
-        <h3><span id="rosterCount">0</span> students</h3>
-        <p class="muted small">Edit a name by typing over it — it saves automatically. History stays with the student.</p>
-        <ol id="rosterList" class="roster"></ol>
+        <h3 id="rosterCount">0 students</h3>
+        <p class="muted small">To fix a name, type over it — it saves automatically. The student's history stays with them.</p>
+        <ol id="rosterList" class="roster" aria-labelledby="rosterCount"></ol>
       </div>
     </section>
 
     <!-- BACKUP -->
-    <section id="view-backup" class="view" aria-label="Backup">
+    <section id="view-backup" class="view" aria-labelledby="backupHeading">
       <div class="panel">
-        <h2>Backup &amp; restore</h2>
+        <h2 id="backupHeading">Backup &amp; restore</h2>
         <p>Your classes, rosters, and records are saved <b>only in this browser on this computer</b>.
           If you clear your browser data, switch browsers, or use another computer, they won't be there.
-          Download a backup file regularly and keep it somewhere safe (e.g., your Google Drive or a USB stick).</p>
+          Download a backup regularly and keep the file somewhere safe, like your Google Drive or a USB stick.</p>
         <p id="lastBackup" class="muted"></p>
         <div class="row-gap">
-          <button id="exportJsonBtn" class="btn primary" type="button">⬇ Download backup (.json)</button>
-          <label class="btn" for="importFile">⬆ Restore from backup…</label>
+          <button id="exportJsonBtn" class="btn primary" type="button">Download backup (.json)</button>
+          <button id="importBtn" class="btn" type="button">Restore from backup…</button>
           <input id="importFile" type="file" accept=".json,application/json" hidden>
         </div>
-        <p class="muted small">Restoring replaces everything currently in the app with the contents of the backup file.</p>
+        <p class="muted small">Restoring replaces everything in the app with what's in the backup file.</p>
       </div>
       <div class="panel">
         <h3>Spreadsheet export</h3>
-        <p>Export one class's records as a CSV file (opens in Excel or Google Sheets): name, date, outcome.</p>
-        <button id="csvBtn2" class="btn" type="button">⬇ Export CSV for this class</button>
+        <p>Save one class's records as a CSV file that opens in Excel or Google Sheets. Columns: Name, Date, Outcome.</p>
+        <button id="csvBtn2" class="btn" type="button">Export CSV for this class</button>
       </div>
     </section>
   </main>
 
-  <footer class="privacy">
-    🔒 <b>Private by design:</b> student names never leave this computer. This page has no server and sends nothing over the internet — everything is stored in your browser.
+  <footer class="site-footer">
+    <p><span aria-hidden="true">🔒</span> <b>Private by design:</b> student names never leave this computer. Nothing you type is uploaded — there's no server and no account. Everything is saved in this browser.</p>
+    <p class="credit">Made by <a href="https://www.instagram.com/missniceph/" rel="noopener" target="_blank">@missniceph<span class="sr-only"> on Instagram (opens in a new tab)</span></a></p>
   </footer>
 
-  <dialog id="historyDialog">
+  <dialog id="historyDialog" aria-labelledby="historyTitle">
     <form method="dialog">
       <h3 id="historyTitle"></h3>
       <div id="historyBody"></div>
@@ -160,7 +191,5 @@
   </dialog>
 
   <div id="toast" class="toast" role="status" hidden></div>
-
-  <script src="app.js"></script>
 </body>
 </html>
